@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.function.DoublePredicate;
 
-public class LineDetector {
+public class HoughLineDetector {
 
 	public static HoughAlgorithmResult houghAlgorithm(double[][] data, int width, int height, int thetaCount, DoublePredicate pixelFilter) {
 		HoughAlgorithmResult result = new HoughAlgorithmResult(thetaCount, width, height);
@@ -43,7 +43,7 @@ public class LineDetector {
 			this.thetaCount = thetaCount;
 			this.thetaStep = Math.PI / thetaCount;
 
-			this.rhoStep = 5.0;
+			this.rhoStep = 2.0;
 			this.minRho = -width;
 			this.maxRho = Math.sqrt((width * width) + (height * height));
 			this.rhoCount = (int) Math.ceil((maxRho - minRho) / rhoStep);
