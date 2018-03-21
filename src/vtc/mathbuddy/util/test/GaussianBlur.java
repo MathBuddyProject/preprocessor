@@ -1,4 +1,4 @@
-package vtc.mathbuddy.util;
+package vtc.mathbuddy.util.test;
 
 public class GaussianBlur {
 

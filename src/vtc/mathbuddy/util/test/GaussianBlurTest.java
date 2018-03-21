@@ -1,4 +1,4 @@
-package vtc.mathbuddy.util;
+package vtc.mathbuddy.util.test;
 
 import java.io.File;
 import java.io.FileInputStream;

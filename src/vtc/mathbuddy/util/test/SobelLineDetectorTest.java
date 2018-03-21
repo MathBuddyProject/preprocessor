@@ -1,10 +1,9 @@
-package vtc.mathbuddy.util;
+package vtc.mathbuddy.util.test;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.util.PriorityQueue;
-import java.util.function.DoublePredicate;
+import java.util.List;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
@@ -15,18 +14,22 @@ import javafx.scene.image.WritableImage;
 import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
-import vtc.mathbuddy.util.HoughLineDetector.HoughAlgorithmResult;
+import vtc.mathbuddy.util.SobelLineDetection;
 
-public class HoughLineDetectorTest extends Application {
+public class SobelLineDetectorTest extends Application {
 
 	private static final Image SOURCE_IMAGE;
-	private static final int THETA_COUNT = 360; // intervals of 0.5 degree
+	private static final double THETA_STEP = Math.toRadians(1);
+	private static final double RHO_STEP = 2;
 	private static final int PIXEL_THRESHOLD = 40;
-
+	private static final int K = 50;
 	
+	private static final int BLUR_KERNEL_SIZE = 5;
+	private static final double BLUR_SIGMA = 0.8;
+
 	static {
 		try {
-			SOURCE_IMAGE = new Image(new FileInputStream(new File("equation5.jpg")), 500, 600, true, true);
+			SOURCE_IMAGE = new Image(new FileInputStream(new File("equation6.jpg")), 500, 600, true, true);
 		} catch (FileNotFoundException ex) {
 			throw new AssertionError(ex);
 		}
@@ -45,31 +48,38 @@ public class HoughLineDetectorTest extends Application {
 			}
 		}
 
-		// 2. Draw difference image
-		double[][] gradient = SobelOperator.compute(pixels, width, height);
+		pixels = GaussianBlur.blur(pixels, width, height, BLUR_KERNEL_SIZE, BLUR_SIGMA);
+		
+		// 2. Compute sobel operator & hough algorithm
+		SobelLineDetection sobelDetection = SobelLineDetection.compute(pixels, THETA_STEP, RHO_STEP, width, height, PIXEL_THRESHOLD);
+		double[][] gradient = sobelDetection.getSobelAmplitude();
+		double[][] phase = sobelDetection.getSobelPhase();
+
+		// 3. Write difference image
 		WritableImage diffImage = new WritableImage(width, height);
 		WritableImage linesImage = new WritableImage(width, height);
 		PixelWriter diffWriter = diffImage.getPixelWriter();
 		PixelWriter linesWriter = linesImage.getPixelWriter();
 		for (int y = 0; y < height; ++y) {
 			for (int x = 0; x < width; ++x) {
-				int val = Math.max(0, Math.min(255, 2 * (int) gradient[y][x]));
-				val = toARGB(val >= PIXEL_THRESHOLD ? val : 0);
+				double val = Math.max(0, Math.min(255, 2 * gradient[y][x]));
+				if (val < PIXEL_THRESHOLD) {
+					diffWriter.setColor(x, y, Color.BLACK);
+					linesWriter.setColor(x, y, Color.BLACK);
+					continue;
+				}
 
-				diffWriter.setArgb(x, y, val);
-				linesWriter.setArgb(x, y, val);
+				Color c = Color.WHITE.interpolate(Color.GREEN, phase[y][x] / Math.PI).interpolate(Color.BLACK, 1 - (val / 255));
+				diffWriter.setColor(x, y, c);
+				linesWriter.setColor(x, y, Color.WHITE.interpolate(Color.BLACK, 1 - (val / 255)));
 			}
 		}
 
-		// 3. Detect lines
-		DoublePredicate filter = x -> (x >= PIXEL_THRESHOLD);
-		HoughAlgorithmResult result = HoughLineDetector.houghAlgorithm(gradient, width - 2, height - 2, THETA_COUNT, filter);
-
 		// 4. Find largest lines
-		PriorityQueue<int[]> largest = result.findKLargest(50);
-		for (int[] coords : largest) {
-			double theta = result.getTheta(coords[0]);
-			double rho = result.getRho(coords[1]);
+		List<double[]> largest = sobelDetection.findKLargest(K);
+		for (double[] entry : largest) {
+			double theta = entry[0];
+			double rho = entry[1];
 			drawLine(linesWriter, width, height, theta, rho);
 		}
 
@@ -88,12 +98,6 @@ public class HoughLineDetectorTest extends Application {
 
 	public static void main(String[] args) {
 		launch();
-	}
-
-	private static final int CONST = (0xff) << 24;
-
-	private static int toARGB(int grayscale) {
-		return grayscale + (grayscale << 8) + (grayscale << 16) + CONST;
 	}
 
 	private static void drawLine(PixelWriter writer, int width, int height, double theta, double rho) {
