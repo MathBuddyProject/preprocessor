@@ -1,5 +1,6 @@
 package vtc.mathbuddy.util.test;
 
+import vtc.mathbuddy.util.GaussianBlur;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
